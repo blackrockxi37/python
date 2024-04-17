@@ -39,6 +39,7 @@ def UsersConnectDB():
             gym_id INTEGER,
             user_id INTEGER,
             name TEXT NOT NULL,
+            original INTEGER,
             FOREIGN KEY (gym_id) REFERENCES Gyms(id),
             FOREIGN KEY (user_id) REFERENCES Users(id)
     );
@@ -105,14 +106,51 @@ def GetGymIdByDate(userid, date):
     print (gymid)
     return gymid
 
+def GetGymDateById(userid, gymid):
+    connection = sqlite3.connect(dbUserpath)
+    cursore = connection.cursor()
+    cursore.execute('SELECT date FROM Gyms WHERE id = ? AND user_id = ?', (gymid, userid, ))
+    gymid = cursore.fetchone()
+    gymid = gymid[0]
+    connection.close()
+    print (gymid)
+    return gymid
+
 def GetGymByDate(userid, date):
     string = ''
     connection = sqlite3.connect(dbUserpath)
     cursor = connection.cursor()
     cursor.execute('SELECT id FROM Gyms WHERE user_id = ? AND date = ?', (userid, str(date), ))
     gymid = cursor.fetchall()
-    print('date: ', date)
     gymid = gymid[0][0]
+    cursor.execute('SELECT id FROM Exsizes WHERE gym_id = ? ', (gymid, ))
+    exids = cursor.fetchall()
+    exids = list(map(list, exids))
+    exids = [w[0] for w in exids]
+    setlist = []
+    for e in exids:
+        cursor.execute('SELECT * FROM Reps WHERE exsize_id = ? ', (e, ))
+        setlist.append(cursor.fetchall())
+    cursor.execute('SELECT name FROM Exsizes WHERE gym_id = ? ', (gymid, ))
+    exnames = cursor.fetchall()
+    exnames = list(map(list, exnames))
+    exnames =  [w[0] for w in exnames]
+    print ('exnames before: ', exnames)
+    temp = []
+    for i in exnames:
+        if i not in temp:
+            temp.append(i)
+    exnames = temp
+    print ('exnames2: ', exnames)
+    for i in range(len(exnames)):
+        string += f'{exnames[i]}:\n'
+        for j in setlist[i]:
+            string += f'{j[2]} {j[3]}\n'
+    return string
+def GetGymById(userid, gymid):
+    string = ''
+    connection = sqlite3.connect(dbUserpath)
+    cursor = connection.cursor()
     cursor.execute('SELECT id FROM Exsizes WHERE gym_id = ? ', (gymid, ))
     exids = cursor.fetchall()
     exids = list(map(list, exids))
@@ -129,8 +167,8 @@ def GetGymByDate(userid, date):
         string += f'{exnames[i]}:\n'
         for j in setlist[i]:
             string += f'{j[2]} {j[3]}\n'
-    print("<->", string)
     return string
+
 def GetGymWithoutExsize(userid, date):
     string = ''
     connection = sqlite3.connect(dbUserpath)
@@ -150,7 +188,6 @@ def GetLastUserGym(userid):
     cursor = connection.cursor()
     cursor.execute('SELECT id FROM Gyms WHERE user_id = ? ', (userid, ))
     gymid = cursor.fetchone()[0]
-    print('gymid: ', gymid)
     cursor.execute('SELECT id FROM Exsizes WHERE gym_id = ? ', (gymid, ))
     exids = cursor.fetchall()
     exids = list(map(list, exids))
@@ -197,26 +234,55 @@ def GetLastGymId(userid):
     connection.commit()
     connection.close()
     return total
+def GetExNamesByGymId(userid, gymid):
+    connection = sqlite3.connect(dbUserpath)
+    cursor = connection.cursor()
+    cursor.execute('SELECT name FROM Exsizes WHERE gym_id = ? AND user_id = ?', (gymid, userid, ))
+    exnames = cursor.fetchall()
+    exnames = list(map(list, exnames))
+    exnames = [e[0] for e in exnames]
+    connection.close()
+    return exnames
 
-def AddExsize(userid, gymid, name):
+def AddExsize(userid, gymid, name, original):
+    print("userid, gymid, name, original",userid, gymid, name, original)
     connection = sqlite3.connect(dbUserpath)
     cursor = connection.cursor()
     cursor.execute('SELECT COUNT(*) FROM Exsizes')
     total_ex = cursor.fetchone()[0]
     print('total_ex : ', total_ex)
-    cursor.execute('INSERT INTO Exsizes (id, user_id, gym_id, name) VALUES (?,?,?,?)', (total_ex + 1, userid, gymid, name))
+    cursor.execute('INSERT INTO Exsizes (id, user_id, gym_id, name, original) VALUES (?,?,?,?,?)', (total_ex + 1, userid, gymid, name, original))
     connection.commit()
     connection.close()
+def GetOrigId(userid, exname):
+    connection = sqlite3.connect(dbUserpath)
+    cursor = connection.cursor()
+    cursor.execute('SELECT id FROM Exsizes WHERE user_id = ? AND name = ? AND original = 0', (userid, exname))
+    value = cursor.fetchone()[0]
+    if value is None:
+        return 0
+    return value
 
 def RemoveExsize(userid, gymid, name):
     connection = sqlite3.connect(dbUserpath)
     cursor = connection.cursor()
     try:
         cursor.execute('SELECT id FROM Exsizes WHERE user_id = ? AND name = ? AND gym_id = ?', (userid, name, gymid, ))
+        exid = cursor.fetchone()[0]
+        cursor.execute('SELECT COUNT(*) FROM Reps WHERE exsize_id = ? ', (exid, ))
         num = cursor.fetchone()[0]
-        cursor.execute('DELETE FROM Exsizes WHERE user_id = ? AND name = ? AND gym_id = ?', (userid, name, gymid, ))
-        cursor.execute('UPDATE Exsizes SET id = id - 1 WHERE id > ?', (num, ))
+        cursor.execute('SELECT id FROM Reps WHERE exsize_id = ?', (exid, ))
+        id = cursor.fetchall()[-1][0]
+        print('id : ', id)
+        cursor.execute('DELETE FROM Reps WHERE exsize_id = ?', (exid, ))
+        cursor.execute('UPDATE Reps SET id = id - ? WHERE id > ?', (num, id, ))
+        cursor.execute('UPDATE Exsizes SET gym_id = 0 WHERE id = ?', (exid, ))
+        
     except Exception as er:
+        try:
+            cursor.execute('UPDATE Exsizes SET gym_id = 0 WHERE id = ?', (exid, ))
+        except:
+            print('second exception')
         print('exception ' + str(er))
     connection.commit()
     connection.close()
@@ -228,6 +294,11 @@ def GetExsize(userid): # Для списка всех пользователль
     cursor.execute(f'SELECT name FROM Exsizes WHERE user_id = ?', (userid, ))
     ex = cursor.fetchall()
     ex = list(map(list, ex))
+    temp = []
+    for e in ex:
+        if e not in temp:
+            temp.append(e)
+    ex = temp
     return ex
 
 def GetExIdByName(exname, userid):
@@ -240,11 +311,27 @@ def GetExIdByName(exname, userid):
     connection.close()
     return ex
 
+def GetExIdByNameAndGym(exname, gymid, userid):
+    connection = sqlite3.connect(dbUserpath)
+    cursor = connection.cursor()
+    cursor.execute(f'SELECT id FROM Exsizes WHERE name = ? AND user_id = ? AND gym_id = ?', (exname, userid, gymid, ))
+    ex = cursor.fetchall()
+    ex = list(map(list, ex))[0][0]
+    connection.commit()
+    connection.close()
+    return ex
+
 def AddSet(exid, setrep):
     connection = sqlite3.connect(dbUserpath)
     cursor = connection.cursor()
     cursor.execute('SELECT COUNT(*) FROM Reps')
     total_sets = cursor.fetchone()[0]
+    try:
+        int(setrep[0])
+        int(setrep[1])
+    except:
+        setrep[0] = 0
+        setrep[1] = 0
     cursor.execute('INSERT INTO Reps (id, exsize_id, sets, reps) VALUES (?,?,?,?)', (total_sets + 1, exid, int(setrep[0]), int(setrep[1])))
     connection.commit()
     connection.close()
@@ -264,6 +351,7 @@ def SetUserBase(userbase, userid):
     cursor.execute('UPDATE Users SET userbase = ? WHERE userid = ?', (userbase, userid))
     connection.commit()
     connection.close()
+    
 def GetUserPremsg(userid):
     connection = sqlite3.connect(dbUserpath)
     cursor = connection.cursor()

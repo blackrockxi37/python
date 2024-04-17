@@ -1,4 +1,4 @@
-
+from datetime import date
 
 def Parse(text):
     try:
@@ -21,3 +21,8 @@ def antiParse(l):
 def msgParse(msg, n):
     arr = msg.split('&')
     return arr[n]
+
+def dataParce(data):
+    print(data)
+    return int(data)
+

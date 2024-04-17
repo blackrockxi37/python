@@ -32,8 +32,8 @@ def kbexlist (listnumber, chatid):
     keyboard = Keyboa.combine(keyboards = (k_eight, k_controlls))
     return keyboard
 
-def kbrmbtn(date, edata):
-    Keyboard = Keyboa(items = ['Удалить упражнение', 'Добавить упражнение'], items_in_row=2, front_marker='&deleteoradd=', back_marker= '&' + str(date) + f'&{edata}').keyboard
+def kbrmbtn(date, gymid):
+    Keyboard = Keyboa(items = ['Удалить упражнение', 'Добавить упражнение'], items_in_row=2, front_marker='&deleteoradd=', back_marker= '&' + str(date) + f'&{gymid}').keyboard
     return Keyboard
 
 def kbaddexsize(listnumber, chatid, edata):
@@ -59,8 +59,8 @@ def kbaddexsize(listnumber, chatid, edata):
         eight = allExsizes[listnumber * 9 : listnumber * 9 + 8]
     else:
         eight = allExsizes[(listnumber-1) * 9 : ]
-        print(eight)
-    k_eight = Keyboa(items=eight, items_in_row= 2, front_marker="&exsizeadd=", back_marker=f'&{edata}').keyboard
+    print(edata)
+    k_eight = Keyboa(items=eight, items_in_row= 2, front_marker="&exsizeadd=", back_marker=edata).keyboard
     k_controlls = Keyboa(items=controlls, items_in_row=2, front_marker="&fbackadd=", back_marker=f'').keyboard
     keyboard = Keyboa.combine(keyboards = (k_eight, k_controlls))
     return keyboard
